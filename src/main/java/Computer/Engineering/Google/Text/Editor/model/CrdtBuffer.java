@@ -28,27 +28,45 @@ public class CrdtBuffer {
 
     public void insert(char charValue, String parentId) {
         clock++;
-        int counter = 0;
 
-        // Track existing counters for the parentId
-        Set<Integer> existingCounters = new HashSet<>();
+        // Find existing children of the parent to determine counter
+        List<CrdtNode> siblings = new ArrayList<>();
         for (CrdtNode node : nodes) {
             if (node.getParentId().equals(parentId)) {
-                existingCounters.add(node.getCounter());
+                siblings.add(node);
             }
         }
 
-        // Ensure uniqueness by finding the smallest available counter
-        while (existingCounters.contains(counter)) {
-            counter++;
-        }
+        // Set counter to the next available value
+        int counter = siblings.size();
 
         CrdtNode newNode = new CrdtNode(siteId, clock, counter, parentId, charValue);
         nodes.add(newNode);
+        logger.debug("Inserted new node: {}", newNode);
 
-        Collections.sort(nodes); // Maintain order
+        // Re-parenting logic: Distinguish between sequential and middle insertions
+        // Sequential insertion: inserting after the most recently inserted node
+        // Middle insertion: inserting after any other node that already has children
+        if (!siblings.isEmpty()) {
+            // Check if this is a sequential insertion (parent is the last inserted node)
+            String lastInsertedNodeId = getLastInsertedId();
 
-        logger.debug("Inserted node: " + newNode);
+            if (parentId.equals(lastInsertedNodeId)) {
+                // Sequential insertion - don't re-parent
+                logger.debug("Sequential insertion: No re-parenting needed");
+            } else {
+                // Middle insertion - re-parent the rightmost child
+                CrdtNode rightmostChild = siblings.stream()
+                        .max(Comparator.comparingInt(CrdtNode::getCounter))
+                        .orElse(null);
+
+                if (rightmostChild != null) {
+                    rightmostChild.setParentId(newNode.getUniqueId());
+                    logger.debug("Middle insertion: Re-parented rightmost child {} to new parent {}",
+                            rightmostChild, newNode.getUniqueId());
+                }
+            }
+        }
     }
 
     public void merge(List<CrdtNode> incomingNodes, List<CrdtNode> incomingDeleted) {
@@ -78,7 +96,6 @@ public class CrdtBuffer {
         System.out.println("Merging incoming nodes: " + incomingNodes.size());
         System.out.println("Before merge: " + nodes.size() + " local nodes");
 
-        Collections.sort(nodes);
     }
 
     public String getDocument() {
@@ -260,19 +277,34 @@ public class CrdtBuffer {
     public String insertAndReturnId(char charValue, String parentId) {
         clock++;
         int counter = 0;
-        Set<Integer> existingCounters = new HashSet<>();
+        // Find the maximum counter among siblings and add 1
+        int maxCounter = -1;
         for (CrdtNode node : nodes) {
             if (node.getParentId().equals(parentId)) {
-                existingCounters.add(node.getCounter());
+                if (node.getCounter() > maxCounter) {
+                    maxCounter = node.getCounter();
+                }
             }
         }
-        while (existingCounters.contains(counter)) {
-            counter++;
-        }
+        counter = maxCounter + 1;
         CrdtNode newNode = new CrdtNode(siteId, clock, counter, parentId, charValue);
         nodes.add(newNode);
-        Collections.sort(nodes);
         logger.debug("Inserted node: " + newNode);
+
+        // Re-parenting logic for middle-insertions
+        CrdtNode childToReparent = null;
+        for (CrdtNode node : nodes) {
+            if (node.getParentId().equals(parentId) && !node.getUniqueId().equals(newNode.getUniqueId())) {
+                childToReparent = node;
+                break;
+            }
+        }
+
+        if (childToReparent != null) {
+            childToReparent.setParentId(newNode.getUniqueId());
+            logger.debug("Re-parented node {} to new parent {}", childToReparent, newNode.getUniqueId());
+        }
+
         return newNode.getUniqueId();
     }
 }

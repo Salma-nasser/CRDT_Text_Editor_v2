@@ -52,12 +52,15 @@ public class CrdtNode implements Comparable<CrdtNode> {
     public int getCounter() {
         return counter;
     }
+
     public void setParentId(String parentId) {
         this.parentId = parentId;
     }
+
     public void setDeleted(boolean deleted) {
         this.deleted = deleted;
     }
+
     @Override
     public int compareTo(CrdtNode other) {
         // First compare by parentId (group siblings)
@@ -66,8 +69,8 @@ public class CrdtNode implements Comparable<CrdtNode> {
             return parentCompare;
         }
 
-        // Then compare by counter (sequence number), descending (higher first)
-        int counterCompare = Integer.compare(other.counter, this.counter);
+        // Then compare by counter (sequence number), ascending (lower first)
+        int counterCompare = Integer.compare(this.counter, other.counter);
         if (counterCompare != 0) {
             return counterCompare;
         }
