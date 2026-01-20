@@ -9,7 +9,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<LandingPage />} />
-        <Route path="/document/:sessionName" element={<DocumentPage />} />
+        <Route path="/document/:sessionId" element={<DocumentPage />} />
       </Routes>
     </Router>
   );
